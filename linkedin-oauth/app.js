@@ -12,6 +12,7 @@ var routes = require('./routes/index');
 var users = require('./routes/users');
 
 var app = express();
+require('dotenv').load()
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -34,6 +35,29 @@ app.use(passport.initialize());
 app.use(passport.session());
 app.use(express.static(path.join(__dirname, 'public')));
 
+passport.use(new LinkedInStrategy({
+  clientID: process.env.LINKEDIN_CLIENT_ID,
+  clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
+  callbackURL: process.env.HOST + "/auth/linkedin/callback",
+  scope: ['r_emailaddress', 'r_basicprofile'],
+  state: true
+}, function(accessToken, refreshToken, profile, done) {
+  done(null, {id: profile.id, displayName: profile.displayName })
+
+}));
+
+app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
+  successRedirect: '/',
+  failureRedirect: '/login'
+}));
+
+app.get('/auth/linkedin',
+  passport.authenticate('linkedin'),
+  function(req, res) {
+    // The request will be redirected to LinkedIn for authentication, so this
+    // function will not be called.
+  });
+
 passport.serializeUser(function(user, done) {
   done(null, user);
 });
@@ -42,26 +66,11 @@ passport.deserializeUser(function(user, done) {
   done(null, user);
 });
 
-require('dotenv').load()
-
-passport.use(new LinkedInStrategy({
-  clientID: process.env.LINKEDIN_CLIENT_ID,
-  clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
-  callbackURL: process.env.HOST + "/auth/linkedin/callback",
-  scope: ['r_emailaddress', 'r_basicprofile'],
-  state: true
-}, function(accessToken, refreshToken, profile, done) {
-  done(null, {
-    id: profile.id,
-    displayName: profile.displayName,
-    token: accessToken
-  })
-}));
-
-app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
-  successRedirect: '/',
-  failureRedirect: '/login'
-}));
+app.use(function (req, res, next) {
+  console.log(req.user);
+  res.locals.user = req.user
+  next()
+})
 
 app.use('/', routes);
 app.use('/users', users);
@@ -73,7 +82,7 @@ app.use(function(req, res, next) {
   next(err);
 });
 
-// error handlers
+// error handlers`
 
 // development error handler
 // will print stacktrace
