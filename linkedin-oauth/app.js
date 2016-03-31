@@ -6,6 +6,7 @@ var cookieParser = require('cookie-parser');
 var bodyParser = require('body-parser');
 var LinkedInStrategy = require('passport-linkedin-oauth2').Strategy;
 var passport = require('passport')
+var cookieSession = require('cookie-session')
 
 var routes = require('./routes/index');
 var users = require('./routes/users');
@@ -24,8 +25,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
   extended: false
 }));
+app.use(cookieSession({
+  name: 'session',
+  keys: ['key1', 'key2']
+}))
 app.use(cookieParser());
 app.use(passport.initialize());
+app.use(passport.session());
 app.use(express.static(path.join(__dirname, 'public')));
 
 passport.serializeUser(function(user, done) {
@@ -43,25 +49,14 @@ passport.use(new LinkedInStrategy({
   clientSecret: process.env.LINKEDIN_CLIENT_SECRET,
   callbackURL: process.env.HOST + "/auth/linkedin/callback",
   scope: ['r_emailaddress', 'r_basicprofile'],
+  state: true
 }, function(accessToken, refreshToken, profile, done) {
-  // asynchronous verification, for effect...
-  process.nextTick(function() {
-    // To keep the example simple, the user's LinkedIn profile is returned to
-    // represent the logged-in user. In a typical application, you would want
-    // to associate the LinkedIn account with a user record in your database,
-    // and return that user instead.
-    return done(null, profile);
-  });
+  done(null, {
+    id: profile.id,
+    displayName: profile.displayName,
+    token: accessToken
+  })
 }));
-
-app.get('/auth/linkedin',
-  passport.authenticate('linkedin', {
-    state: 'SOME STATE'
-  }),
-  function(req, res) {
-    // The request will be redirected to LinkedIn for authentication, so this
-    // function will not be called.
-  });
 
 app.get('/auth/linkedin/callback', passport.authenticate('linkedin', {
   successRedirect: '/',
